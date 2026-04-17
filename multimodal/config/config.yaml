@@ -1,0 +1,66 @@
+# ─────────────────────────────────────────────────────────────
+#  configs/multimodal_config.yaml
+#  Configuration for MultiModal Brain Tumour Detection
+# ─────────────────────────────────────────────────────────────
+
+# ── Data ────────────────────────────────────────────────────
+data_root:    "data/BraTS2021"      # root with train/ val/ test/ sub-dirs
+label_file:   null                  # optional: JSON {subject_id: grade}
+modalities:   ["t1", "t1ce", "t2", "flair"]
+target_shape: [240, 240, 155]       # pad/crop all volumes to this
+patch_size:   [128, 128, 128]       # 3-D patch for training
+norm_method:  "z_score"             # z_score | min_max | percentile
+fg_ratio:     0.5                   # fraction of patches with foreground
+cache_data:   false                 # load all into RAM (needs ~200 GB)
+use_sampler:  true                  # weighted sampler balancing tumour load
+
+# ── Model ───────────────────────────────────────────────────
+model_type:          "3d"           # 3d | 2d
+num_modalities:      4
+num_seg_classes:     4              # 0=bg, 1=necrotic, 2=edema, 3=enhancing
+num_grade_classes:   3              # 0=no_tumour, 1=LGG, 2=HGG
+base_channels:       32             # doubles at each encoder level
+fusion_type:         "se_modality"  # concat|se_modality|cross_modal|moe|robust
+shared_encoder:      false
+dropout:             0.1
+
+# ── Loss ────────────────────────────────────────────────────
+loss_type:        "multitask"   # multitask|dice_focal|dice_ce|dice
+lambda_seg:       1.0
+lambda_grade:     0.5
+lambda_aux:       0.01          # MoE aux load-balance loss weight
+gamma:            2.0           # focal loss gamma
+label_smoothing:  0.1
+use_class_weights: true
+
+# ── Optimiser & scheduler ───────────────────────────────────
+optimizer:         "adamw"
+lr:                1.0e-4
+lr_min:            1.0e-7
+weight_decay:      1.0e-5
+grad_clip:         1.0
+scheduler:         "warmup_cosine"   # warmup_cosine|cosine|onecycle|plateau
+warmup_epochs:     10
+cosine_T0:         50
+cosine_Tmult:      2
+patience_lr:       15               # used by plateau scheduler
+
+# ── Training loop ───────────────────────────────────────────
+epochs:            300
+batch_size:        2
+num_workers:       4
+pin_memory:        true
+amp:               true             # mixed precision
+seed:              42
+log_every:         20               # steps between log lines
+patience:          50               # early-stopping patience (epochs)
+
+# ── Validation & checkpointing ──────────────────────────────
+compute_hd95_val:  false            # HD95 is slow; enable for final eval
+output_dir:        "output/multimodal"
+resume:            null             # path to .pth to resume from
+
+# ── Inference ───────────────────────────────────────────────
+compute_hd95_test: true
+sw_overlap:        0.5              # sliding window overlap fraction
+sw_batch_size:     1
